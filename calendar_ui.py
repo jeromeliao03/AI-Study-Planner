@@ -25,22 +25,34 @@ def shorten_text(value, max_len=28):
 
 
 def build_tooltip_html(day, day_info):
+    due_tasks = set(day_info.get("due_tasks", []))
     tooltip_lines = [
-        f"Date: {day.strftime('%Y-%m-%d')}",
-        f"Total: {format_hours(day_info['study_hours'])}",
+        html.escape(f"Date: {day.strftime('%Y-%m-%d')}"),
+        html.escape(f"Total: {format_hours(day_info['study_hours'])}"),
         "Tasks:",
     ]
 
     for idx, task in enumerate(day_info["tasks"], start=1):
-        tooltip_lines.append(f"{idx}. {task}")
+        task_text = html.escape(str(task))
+        if task in due_tasks:
+            tooltip_lines.append(f"{idx}. <span style=\"color:#ff7b7b;font-weight:700;\">{task_text} (DEADLINE)</span>")
+        else:
+            tooltip_lines.append(f"{idx}. {task_text}")
 
-    escaped_lines = [html.escape(line) for line in tooltip_lines]
-    return "<br>".join(escaped_lines)
+    return "<br>".join(tooltip_lines)
+
 
 
 def render_month_calendar(calendar_df):
     calendar_df = calendar_df.copy()
     calendar_df["Date"] = pd.to_datetime(calendar_df["Date"]).dt.date
+
+    due_tasks_by_date = (
+        calendar_df[calendar_df["Is_Due_Date"]]
+        .groupby("Date")["Task"]
+        .apply(lambda s: list(dict.fromkeys(s.tolist())))
+        .to_dict()
+    )
 
     grouped = (
         calendar_df.groupby("Date", as_index=False)
@@ -56,6 +68,7 @@ def render_month_calendar(calendar_df):
         row["Date"]: {
             "tasks": row["Task"],
             "study_hours": row["Study Hours"],
+            "due_tasks": due_tasks_by_date.get(row["Date"], []),
         }
         for _, row in grouped.iterrows()
     }
@@ -70,53 +83,34 @@ def render_month_calendar(calendar_df):
     st.markdown(
         """
         <style>
-        .calendar-card {
-            position: relative;
-            border: 1px solid rgba(151, 166, 195, 0.25);
-            border-radius: 10px;
-            padding: 8px;
-            min-height: 120px;
-            background: rgba(19, 26, 42, 0.35);
-            cursor: help;
-            overflow: visible;
-        }
-        .calendar-day {
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-        .calendar-meta {
-            font-size: 0.78rem;
-            color: #9aa4b5;
-            margin-bottom: 4px;
-        }
-        .calendar-task {
-            font-size: 0.82rem;
-            line-height: 1.2;
-        }
         .calendar-tooltip {
             visibility: hidden;
             opacity: 0;
-            transition: opacity 0.15s ease;
             position: absolute;
             z-index: 999;
+            bottom: 105%;
             left: 50%;
-            bottom: calc(100% + 8px);
             transform: translateX(-50%);
-            width: 260px;
-            background: #101828;
-            color: #f8fafc;
-            border: 1px solid rgba(151, 166, 195, 0.45);
-            border-radius: 8px;
-            padding: 8px 10px;
+            width: 240px;
+            background: #1a1a2e;
+            color: #f0f0f0;
+            border: 1px solid #ff4444;
+            border-radius: 6px;
+            padding: 10px;
             font-size: 0.78rem;
-            line-height: 1.35;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+            line-height: 1.4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
             pointer-events: none;
+            white-space: normal;
             text-align: left;
+            transition: opacity 0.2s ease;
         }
         .calendar-card:hover .calendar-tooltip {
             visibility: visible;
             opacity: 1;
+        }
+        .calendar-column {
+            min-height: 150px;
         }
         </style>
         """,
@@ -145,36 +139,32 @@ def render_month_calendar(calendar_df):
                 day_info = date_to_items.get(current_date)
 
                 if not day_info:
-                    st.markdown(
-                        f"""
-                        <div class="calendar-card">
-                            <div class="calendar-day">{day}</div>
-                            <div class="calendar-meta">No study</div>
+                    st.markdown(f"""
+                        <div class="calendar-column" style="border: 1px solid rgba(151, 166, 195, 0.25) !important; border-radius: 10px; padding: 12px; min-height: 140px; background: rgba(19, 26, 42, 0.35);">
+                            <div style="font-weight: 700; font-size: 1.1rem;">{day}</div>
+                            <div style="font-size: 0.8rem; color: #9aa4b5;">No study</div>
                         </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                    """, unsafe_allow_html=True)
                     continue
 
                 task_count = len(day_info["tasks"])
-                top_task = html.escape(shorten_text(day_info["tasks"][0]))
+                due_tasks = day_info.get("due_tasks", [])
+                top_task = due_tasks[0] if due_tasks else day_info["tasks"][0]
+                top_task = shorten_text(top_task)
                 remaining = task_count - 1
+                is_due_task_preview = bool(due_tasks)
+                task_preview = f"{top_task} (+{remaining} more)" if remaining > 0 else top_task
+                tooltip = build_tooltip_html(current_date, day_info)
 
-                if remaining > 0:
-                    task_preview = f"{top_task} (+{remaining} more)"
-                else:
-                    task_preview = top_task
+                task_preview_html = html.escape(task_preview)
+                if is_due_task_preview:
+                    task_preview_html = f"<span style=\"color:#ff7b7b;font-weight:700;\">{task_preview_html}</span>"
 
-                tooltip_html = build_tooltip_html(current_date, day_info)
-
-                st.markdown(
-                    f"""
-                    <div class="calendar-card">
-                        <div class="calendar-day">{day}</div>
-                        <div class="calendar-meta">{format_hours(day_info['study_hours'])} total | {task_count} task(s)</div>
-                        <div class="calendar-task">{task_preview}</div>
-                        <div class="calendar-tooltip">{tooltip_html}</div>
+                st.markdown(f"""
+                    <div class="calendar-card calendar-column" style="border: 1px solid rgba(151, 166, 195, 0.25); background: rgba(19, 26, 42, 0.35); border-radius: 10px; padding: 12px; min-height: 140px; position: relative;">
+                        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 4px;">{day}</div>
+                        <div style="font-size: 0.8rem; color: #9aa4b5; margin-bottom: 6px; line-height: 1.3;">{format_hours(day_info['study_hours'])} | {task_count} task(s)</div>
+                        <div style="font-size: 0.85rem; line-height: 1.35;">{task_preview_html}</div>
+                        <div class="calendar-tooltip">{tooltip}</div>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                """, unsafe_allow_html=True)

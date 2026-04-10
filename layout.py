@@ -27,31 +27,55 @@ def configure_page() -> None:
         """
         <style>
         .block-container {
-            padding-top: 1.5rem;
-            padding-bottom: 0.2rem;
+            padding-top: 0.8rem;
+            padding-bottom: 0.1rem;
             max-width: 100%;
         }
         h1 {
             margin-bottom: 0.1rem;
             margin-top: 0rem;
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             line-height: 1.2;
         }
         h3 {
-            margin-top: 0.05rem;
-            margin-bottom: 0.05rem;
-            font-size: 1rem;
+            margin-top: 0.02rem;
+            margin-bottom: 0.02rem;
+            font-size: 0.92rem;
         }
         .stForm {
-            padding: 0.3rem;
+            padding: 0.15rem;
             border: none;
             gap: 0;
         }
         .stTextInput, .stSelectbox, .stSlider, .stDateInput {
-            margin-bottom: 0.1rem;
+            margin-bottom: 0.02rem;
         }
         [data-testid="stVerticalBlock"] > div {
-            gap: 0.1rem;
+            gap: 0.02rem;
+        }
+        label, .stMarkdown, .stCaption {
+            font-size: 0.84rem !important;
+        }
+        .stTextInput input,
+        .stDateInput input,
+        .stNumberInput input,
+        .stSelectbox [data-baseweb="select"] > div {
+            min-height: 1.95rem !important;
+            font-size: 0.86rem !important;
+        }
+
+        div.stButton > button,
+        div.stFormSubmitButton > button {
+            padding: 0.24rem 0.75rem !important;
+            font-size: 0.86rem !important;
+            min-height: 2.05rem !important;
+            line-height: 1.1 !important;
+            border-radius: 0.35rem !important;
+        }
+
+        div.stButton > button p,
+        div.stFormSubmitButton > button p {
+            font-size: 0.86rem !important;
         }
         </style>
         """,
